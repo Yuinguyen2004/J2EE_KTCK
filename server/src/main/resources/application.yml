@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: billiard-shop-server
+  profiles:
+    default: dev
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/billiard_shop}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: UTC
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      issuer: ${JWT_ISSUER:billiard-shop}
+      access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+      refresh-token-ttl: ${JWT_REFRESH_TTL:P7D}
+  auth:
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    mail-from: ${MAIL_FROM:no-reply@billiard-shop.local}
+    refresh-cookie-name: ${JWT_REFRESH_COOKIE_NAME:refresh_token}
+    refresh-cookie-path: ${JWT_REFRESH_COOKIE_PATH:/api/v1/auth}
+    refresh-cookie-secure: ${JWT_REFRESH_COOKIE_SECURE:true}
+    password-reset-token-ttl: ${PASSWORD_RESET_TTL:PT30M}

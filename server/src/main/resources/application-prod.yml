@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    hibernate:
+      # No migration tool is wired yet, so first boot on a fresh database must
+      # be allowed to create/update the schema instead of failing fast.
+      ddl-auto: update
+    show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
