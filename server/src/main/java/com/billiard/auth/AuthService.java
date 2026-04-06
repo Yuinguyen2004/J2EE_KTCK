@@ -116,6 +116,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing refresh token");
         }
 
+        Instant now = Instant.now();
         Claims claims = validateRefreshToken(refreshToken);
         String jti = claims.getId();
         if (jti == null) {
@@ -123,19 +124,19 @@ public class AuthService {
         }
 
         String tokenHash = hashToken(jti);
-        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
 
         if (storedToken.getRotatedAt() != null || storedToken.getRevokedAt() != null) {
-            refreshTokenRepository.revokeFamily(storedToken.getTokenFamily(), Instant.now());
+            refreshTokenRepository.revokeFamily(storedToken.getTokenFamily(), now);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token reuse detected");
         }
 
-        if (!storedToken.isActive()) {
+        if (!storedToken.getExpiresAt().isAfter(now)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
         }
 
-        storedToken.setRotatedAt(Instant.now());
+        storedToken.setRotatedAt(now);
         refreshTokenRepository.save(storedToken);
 
         User user = loadActiveUser(claims.getSubject());
@@ -183,6 +184,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setProvider(AuthProvider.LOCAL);
         userRepository.save(user);
+        refreshTokenRepository.revokeActiveByUserId(user.getId(), Instant.now());
 
         markTokenUsed(resetToken);
         invalidateActiveResetTokens(user.getId(), resetToken);

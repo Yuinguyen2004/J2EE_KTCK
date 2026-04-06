@@ -21,7 +21,7 @@ public class AuthCookieService {
         return ResponseCookie.from(authProperties.getRefreshCookieName(), token)
                 .httpOnly(true)
                 .secure(authProperties.isRefreshCookieSecure())
-                .sameSite("Lax")
+                .sameSite("Strict")
                 .path(authProperties.getRefreshCookiePath())
                 .maxAge(jwtProperties.getRefreshTokenTtl())
                 .build();
@@ -31,7 +31,7 @@ public class AuthCookieService {
         return ResponseCookie.from(authProperties.getRefreshCookieName(), "")
                 .httpOnly(true)
                 .secure(authProperties.isRefreshCookieSecure())
-                .sameSite("Lax")
+                .sameSite("Strict")
                 .path(authProperties.getRefreshCookiePath())
                 .maxAge(Duration.ZERO)
                 .build();

@@ -37,16 +37,20 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response
     ) {
+        requireXmlHttpRequest(httpRequest);
         return authenticatedResponse(authService.register(request), response);
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response
     ) {
+        requireXmlHttpRequest(httpRequest);
         return authenticatedResponse(authService.login(request), response);
     }
 
@@ -55,9 +59,7 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Missing required header");
-        }
+        requireXmlHttpRequest(request);
         String refreshToken = authCookieService.extractRefreshToken(request);
         return authenticatedResponse(authService.refresh(refreshToken), response);
     }
@@ -67,9 +69,7 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Missing required header");
-        }
+        requireXmlHttpRequest(request);
         String refreshToken = authCookieService.extractRefreshToken(request);
         authService.logout(refreshToken);
         response.addHeader(
@@ -99,8 +99,10 @@ public class AuthController {
     @PostMapping("/oauth2/exchange")
     public ResponseEntity<AuthResponse> exchangeOAuthCode(
             @Valid @RequestBody OAuthExchangeRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response
     ) {
+        requireXmlHttpRequest(httpRequest);
         return authenticatedResponse(authService.exchangeOAuthCode(request.code()), response);
     }
 
@@ -122,5 +124,11 @@ public class AuthController {
                 authCookieService.refreshTokenCookie(session.refreshToken()).toString()
         );
         return ResponseEntity.ok(new AuthResponse(session.accessToken(), session.user()));
+    }
+
+    private void requireXmlHttpRequest(HttpServletRequest request) {
+        if (!"XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Missing required header");
+        }
     }
 }

@@ -1,0 +1,358 @@
+.account-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.account-header h1 {
+  margin: 0 0 6px;
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text-h);
+}
+
+.account-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.account-panel {
+  padding: 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.account-panel.centered {
+  text-align: center;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.account-panel h3 {
+  margin: 0 0 18px;
+  font-family: var(--heading);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text-h);
+}
+
+.profile-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(212, 168, 83, 0.08), transparent 55%);
+  pointer-events: none;
+}
+
+.profile-identity {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.16), rgba(212, 168, 83, 0.04));
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+.profile-identity h2 {
+  margin: 0 0 4px;
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text-h);
+}
+
+.profile-identity p {
+  margin: 0;
+  color: var(--text);
+  opacity: 0.65;
+}
+
+.profile-meta-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.meta-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meta-value {
+  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.role-pill {
+  text-transform: capitalize;
+  color: var(--accent);
+}
+
+.capability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.capability-item {
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.account-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.account-stat-card {
+  padding: 18px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.account-stat-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  opacity: 0.65;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-stat-value {
+  display: block;
+  font-family: var(--heading);
+  font-size: 30px;
+  font-weight: 400;
+  color: var(--text-h);
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notification-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.notification-card.level-critical {
+  border-color: rgba(224, 82, 82, 0.22);
+}
+
+.notification-card.level-attention {
+  border-color: var(--accent-border);
+}
+
+.notification-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+
+.notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.notification-copy h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.notification-copy p {
+  margin: 8px 0 0;
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.notification-topline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notification-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.notification-level.critical {
+  background: rgba(224, 82, 82, 0.1);
+  color: var(--error);
+}
+
+.notification-level.attention {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.notification-level.info {
+  background: rgba(77, 184, 184, 0.1);
+  color: #7fd0d0;
+}
+
+.notification-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  opacity: 0.75;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.notification-time {
+  margin-top: 6px;
+  color: var(--text);
+  opacity: 0.55;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.notification-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notification-action:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .account-panel {
+    padding: 18px;
+  }
+
+  .profile-identity {
+    align-items: flex-start;
+  }
+
+  .profile-identity h2 {
+    font-size: 24px;
+  }
+
+  .meta-row {
+    flex-direction: column;
+  }
+
+  .meta-value {
+    text-align: left;
+  }
+}
