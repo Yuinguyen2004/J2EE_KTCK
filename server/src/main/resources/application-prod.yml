@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    hibernate:
+      # Production must never mutate schema implicitly. Provision the database
+      # schema ahead of time, then let startup validate that the app and DB
+      # still match.
+      ddl-auto: validate
+    show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

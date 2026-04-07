@@ -22,3 +22,32 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# bv (beads viewer) local config and caches
+.bv/
+
+# Frontend workspace
+client/node_modules/
+client/dist/
+client/*.tsbuildinfo
+client/vite.config.js
+client/vite.config.d.ts
+
+# Generated TLS certificates
+nginx/ssl/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Local agent and planning artifacts
+.beads/
+.codex/
+.codex-verify/
+.khuym/
+.spikes/
+.m2-cache/
+.m2-cache-auth-verify/
+history/
+tasks/

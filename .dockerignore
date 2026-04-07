@@ -1,0 +1,14 @@
+.git
+.github
+.beads
+.bv
+history
+tasks
+
+client/node_modules
+client/dist
+client/*.tsbuildinfo
+
+server/target
+
+**/.DS_Store
