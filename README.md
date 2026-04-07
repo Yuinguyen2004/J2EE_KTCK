@@ -90,3 +90,12 @@ Use real accounts for each role where possible so role guards, menu visibility, 
 ## Known Note
 
 - Frontend production build still reports the existing large bundle-size warning from Vite, but the build completes successfully
+
+## Deployment Note
+
+- For a brand-new VPS PostgreSQL database, apply `deployment/postgres/001_schema.sql` before starting the production app, then use the first-admin bootstrap env vars documented in `deployment/postgres/README.md` for the first boot only
+- The bundled Docker/nginx stack now serves plain HTTP on port `80` only. It does not require `nginx/ssl/cert.pem` or `nginx/ssl/key.pem`
+- For this HTTP-only deploy path, set `FRONTEND_BASE_URL=http://your-domain.example` and `JWT_REFRESH_COOKIE_SECURE=false`
+- If you later terminate HTTPS in a host-level reverse proxy, switch `FRONTEND_BASE_URL` back to `https://...` and set `JWT_REFRESH_COOKIE_SECURE=true`
+- Google OAuth should be treated as unavailable on an HTTP-only VPS deploy, because production OAuth redirect URIs generally require HTTPS
+- For Railway deployment, use the split-service guide in [deployment/railway/README.md](/home/nguyenthanhhuy/Documents/J2EE_KTCK/deployment/railway/README.md)
