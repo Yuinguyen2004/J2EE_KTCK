@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
 import com.billiard.users.UserRole;
+import com.billiard.customers.Customer;
+import com.billiard.customers.CustomerRepository;
 import io.jsonwebtoken.Claims;
 import java.util.Date;
 import java.util.Optional;
@@ -27,6 +29,9 @@ class AuthServiceOAuthTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CustomerRepository customerRepository;
 
     @Mock
     private PasswordResetTokenRepository passwordResetTokenRepository;
@@ -52,6 +57,7 @@ class AuthServiceOAuthTest {
     void setUp() {
         authService = new AuthService(
                 userRepository,
+                customerRepository,
                 passwordResetTokenRepository,
                 refreshTokenRepository,
                 passwordEncoder,
@@ -65,6 +71,7 @@ class AuthServiceOAuthTest {
     @Test
     void issueGoogleExchangeCodeCreatesCustomerAccountForNewUser() {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<Customer> customerCaptor = ArgumentCaptor.forClass(Customer.class);
 
         when(userRepository.findByEmailIgnoreCase("google-user@example.com"))
                 .thenReturn(Optional.empty());
@@ -73,6 +80,8 @@ class AuthServiceOAuthTest {
             savedUser.setId(41L);
             return savedUser;
         });
+        when(customerRepository.findByUser_Id(41L)).thenReturn(Optional.empty());
+        when(customerRepository.save(customerCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
         when(oauthExchangeCodeStore.issueCode("google-user@example.com")).thenReturn("exchange-code");
 
         String exchangeCode = authService.issueGoogleExchangeCode(
@@ -87,10 +96,11 @@ class AuthServiceOAuthTest {
         assertThat(savedUser.getProvider()).isEqualTo(AuthProvider.GOOGLE);
         assertThat(savedUser.getRole()).isEqualTo(UserRole.CUSTOMER);
         assertThat(savedUser.isActive()).isTrue();
+        assertThat(customerCaptor.getValue().getUser()).isSameAs(savedUser);
     }
 
     @Test
-    void issueGoogleExchangeCodeRejectsExistingLocalAccount() {
+    void issueGoogleExchangeCodeAllowsExistingOperationalLocalAccount() {
         User existingUser = new User();
         existingUser.setEmail("existing@example.com");
         existingUser.setProvider(AuthProvider.LOCAL);
@@ -99,8 +109,25 @@ class AuthServiceOAuthTest {
 
         when(userRepository.findByEmailIgnoreCase("existing@example.com"))
                 .thenReturn(Optional.of(existingUser));
+        when(oauthExchangeCodeStore.issueCode("existing@example.com")).thenReturn("exchange-code");
 
-        assertThatThrownBy(() -> authService.issueGoogleExchangeCode("existing@example.com", "Admin"))
+        String exchangeCode = authService.issueGoogleExchangeCode("existing@example.com", "Admin");
+
+        assertThat(exchangeCode).isEqualTo("exchange-code");
+    }
+
+    @Test
+    void issueGoogleExchangeCodeRejectsExistingLocalCustomerAccount() {
+        User existingUser = new User();
+        existingUser.setEmail("existing@example.com");
+        existingUser.setProvider(AuthProvider.LOCAL);
+        existingUser.setRole(UserRole.CUSTOMER);
+        existingUser.setActive(true);
+
+        when(userRepository.findByEmailIgnoreCase("existing@example.com"))
+                .thenReturn(Optional.of(existingUser));
+
+        assertThatThrownBy(() -> authService.issueGoogleExchangeCode("existing@example.com", "Customer"))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -135,5 +162,36 @@ class AuthServiceOAuthTest {
         assertThat(session.refreshToken()).isEqualTo("refresh-token");
         assertThat(session.user().email()).isEqualTo("google-user@example.com");
         assertThat(session.user().role()).isEqualTo(UserRole.CUSTOMER);
+    }
+
+    @Test
+    void exchangeOAuthCodeAllowsOperationalLocalAccount() {
+        User adminUser = new User();
+        adminUser.setId(14L);
+        adminUser.setEmail("admin@example.com");
+        adminUser.setFullName("Admin User");
+        adminUser.setRole(UserRole.ADMIN);
+        adminUser.setProvider(AuthProvider.LOCAL);
+        adminUser.setActive(true);
+
+        when(oauthExchangeCodeStore.consumeCode("exchange-code"))
+                .thenReturn("admin@example.com");
+        when(userRepository.findByEmailIgnoreCase("admin@example.com"))
+                .thenReturn(Optional.of(adminUser));
+        when(jwtProvider.createAccessToken(adminUser)).thenReturn("access-token");
+        when(jwtProvider.createRefreshToken(adminUser)).thenReturn("refresh-token");
+
+        Claims refreshClaims = mock(Claims.class);
+        when(refreshClaims.getId()).thenReturn("test-jti");
+        when(refreshClaims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 86400_000));
+        when(jwtProvider.validateRefreshToken("refresh-token")).thenReturn(refreshClaims);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AuthenticatedSession session = authService.exchangeOAuthCode("exchange-code");
+
+        assertThat(session.accessToken()).isEqualTo("access-token");
+        assertThat(session.refreshToken()).isEqualTo("refresh-token");
+        assertThat(session.user().email()).isEqualTo("admin@example.com");
+        assertThat(session.user().role()).isEqualTo(UserRole.ADMIN);
     }
 }

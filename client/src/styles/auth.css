@@ -240,6 +240,50 @@
   cursor: not-allowed;
 }
 
+.button-secondary {
+  width: 100%;
+  margin-top: 0.75rem;
+  background: transparent;
+  color: var(--text-h);
+  border: 1px solid var(--border-strong);
+}
+
+.button-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(212, 168, 83, 0.08);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  color: var(--text);
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.google-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: #fff;
+  color: #111318;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .auth-switch {
   text-align: center;
   margin-top: 1.5rem;
@@ -250,6 +294,7 @@
 .auth-switch p {
   font-size: 0.85rem;
   color: var(--text);
+  margin: 0.45rem 0 0;
 }
 
 .auth-switch a {
@@ -258,6 +303,20 @@
 }
 
 .auth-switch a:hover {
+  text-decoration: underline;
+}
+
+.auth-link-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.auth-link-button:hover {
   text-decoration: underline;
 }
 

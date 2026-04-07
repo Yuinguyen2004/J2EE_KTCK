@@ -5,7 +5,7 @@ Khởi tạo dự án:
 	- database: postgresSQL
 Chức năng chính:
  
-Đăng ký, đăng nhập và xác thực người dùng bằng JWT (google firebase)
+Đăng ký, đăng nhập và xác thực người dùng bằng JWT/OAuth2
 
 Quản lý Bàn và Trạng thái Trực quan ( hiển thị bàn theo sơ đồ). click vào bàn để thực hiện các chức năng tương ứng như:
 	- Khi kích vào bàn đang trống thì có thể chọn bắt đầu chơi để có thể tính thời gian cho bàn đó để tính tiền

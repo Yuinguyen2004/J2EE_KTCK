@@ -59,10 +59,6 @@ public interface ReservationRepository
     @Query("""
             select reservation
             from Reservation reservation
-            left join fetch reservation.table
-            left join fetch reservation.customer customer
-            left join fetch customer.user
-            left join fetch reservation.staff
             where reservation.id = :id
             """)
     java.util.Optional<Reservation> findByIdForUpdate(@Param("id") Long id);

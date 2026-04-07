@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/pricing-rules")
-@PreAuthorize("hasRole('ADMIN')")
 public class PricingRuleController {
 
     private final PricingRuleCrudService pricingRuleCrudService;
@@ -30,6 +29,7 @@ public class PricingRuleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public PageResponse<PricingRuleResponse> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String sortBy,
@@ -41,11 +41,13 @@ public class PricingRuleController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public PricingRuleResponse get(@PathVariable Long id) {
         return pricingRuleCrudService.get(id);
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PricingRuleResponse> create(
             @Valid @RequestBody PricingRuleUpsertRequest request
     ) {
@@ -54,6 +56,7 @@ public class PricingRuleController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public PricingRuleResponse update(
             @PathVariable Long id,
             @Valid @RequestBody PricingRuleUpsertRequest request
@@ -62,6 +65,7 @@ public class PricingRuleController {
     }
 
     @PatchMapping("/{id}/active")
+    @PreAuthorize("hasRole('ADMIN')")
     public PricingRuleResponse updateActive(
             @PathVariable Long id,
             @Valid @RequestBody ToggleActiveRequest request

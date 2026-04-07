@@ -1,19 +1,62 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/useAuth'
 import { getErrorMessage } from '../services/error'
 import '../styles/auth.css'
 
 interface LoginProps {
   onSuccess?: () => void;
+  onGoToRegister?: () => void;
 }
 
-export default function Login({ onSuccess = () => {} }: LoginProps) {
-  const { login } = useAuth()
+export default function Login({ onSuccess = () => {}, onGoToRegister = () => {} }: LoginProps) {
+  const { completeGoogleLogin, login, startGoogleLogin } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [apiError, setApiError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const oauthHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/oauth2/callback') {
+      return
+    }
+
+    if (oauthHandledRef.current) {
+      return
+    }
+    oauthHandledRef.current = true
+
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    const callbackError = params.get('error_description') || params.get('error')
+
+    window.history.replaceState({}, document.title, '/login')
+
+    if (callbackError) {
+      setApiError(callbackError)
+      return
+    }
+
+    if (!code) {
+      setApiError('Google sign-in could not be completed.')
+      return
+    }
+
+    setIsLoading(true)
+    setApiError('')
+
+    void completeGoogleLogin(code)
+      .then(() => {
+        onSuccess()
+      })
+      .catch((error: unknown) => {
+        setApiError(getErrorMessage(error, 'Google sign-in failed. Please try again.'))
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }, [completeGoogleLogin, onSuccess])
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {}
@@ -52,6 +95,11 @@ export default function Login({ onSuccess = () => {} }: LoginProps) {
     }
   }
 
+  const handleGoogleSignIn = () => {
+    setApiError('')
+    startGoogleLogin()
+  }
+
   return (
     <div className="auth-container">
       {/* Left side - Image */}
@@ -64,7 +112,7 @@ export default function Login({ onSuccess = () => {} }: LoginProps) {
         <div className="image-overlay"></div>
         <div className="image-content">
           <h2>Welcome Back</h2>
-          <p>Manage your billiard club operations seamlessly</p>
+          <p>Book tables, browse the menu, and stay connected with the shop</p>
         </div>
       </div>
 
@@ -74,7 +122,7 @@ export default function Login({ onSuccess = () => {} }: LoginProps) {
           <div className="auth-header">
             <h1>Sign In</h1>
             <p className="subtitle">
-              Access your staff dashboard
+              Access your billiard account
             </p>
           </div>
 
@@ -143,8 +191,23 @@ export default function Login({ onSuccess = () => {} }: LoginProps) {
             </button>
           </form>
 
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+          >
+            <span className="google-mark" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+
           <div className="auth-switch">
-            <p>Staff and admin accounts are provisioned by your administrator.</p>
+            <p>New here? <button type="button" className="auth-link-button" onClick={onGoToRegister}>Create a customer account</button></p>
+            <p>Staff and admin users can still sign in here with their existing accounts.</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { authService, type User } from '../services/authService';
+import { authService, type RegisterInput, type User } from '../services/authService';
 import { AuthContext } from './auth-context';
 
 const USER_STORAGE_KEY = 'user';
@@ -79,6 +79,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistUser(session.user);
   };
 
+  const register = async (input: RegisterInput) => {
+    const session = await authService.register(input);
+    setUser(session.user);
+    persistUser(session.user);
+  };
+
+  const completeGoogleLogin = async (code: string) => {
+    const session = await authService.exchangeOAuthCode(code);
+    setUser(session.user);
+    persistUser(session.user);
+  };
+
   const logout = async () => {
     await authService.logout();
     setUser(null);
@@ -92,6 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: Boolean(user),
         isLoading,
         login,
+        register,
+        completeGoogleLogin,
+        startGoogleLogin: authService.startGoogleLogin,
         logout,
       }}
     >

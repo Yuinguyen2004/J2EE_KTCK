@@ -13,6 +13,8 @@ public interface CustomerRepository
 
     Optional<Customer> findByUser_Id(Long userId);
 
+    Optional<Customer> findByUser_EmailIgnoreCase(String email);
+
     @Override
     @EntityGraph(attributePaths = {"user", "membershipTier"})
     Page<Customer> findAll(Specification<Customer> spec, Pageable pageable);

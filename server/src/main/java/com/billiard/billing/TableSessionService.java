@@ -7,6 +7,7 @@ import com.billiard.billing.dto.StartSessionRequest;
 import com.billiard.billing.dto.InvoiceResponse;
 import com.billiard.billing.dto.TableSessionResponse;
 import com.billiard.customers.Customer;
+import com.billiard.memberships.MembershipTier;
 import com.billiard.customers.CustomerRepository;
 import com.billiard.reservations.ReservationRepository;
 import com.billiard.reservations.ReservationStatus;
@@ -191,6 +192,8 @@ public class TableSessionService {
         billiardTableRepository.save(session.getTable());
         TableSession savedSession = tableSessionRepository.save(session);
         InvoiceResponse invoiceResponse = invoiceService.generateForSession(savedSession.getId());
+        invoiceResponse = invoiceService.issue(invoiceResponse.id(), staffEmail);
+        invoiceResponse = invoiceService.pay(invoiceResponse.id(), staffEmail);
         TableSessionResponse sessionResponse = toResponse(savedSession);
         publishFloorUpdates(savedSession.getTable(), sessionResponse);
         return new EndSessionResponse(sessionResponse, invoiceResponse);
@@ -294,6 +297,7 @@ public class TableSessionService {
 
         User staff = session.getStaff();
         Customer customer = session.getCustomer();
+        MembershipTier membershipTier = customer == null ? null : customer.getMembershipTier();
         BilliardTable table = session.getTable();
 
         return new TableSessionResponse(
@@ -303,6 +307,8 @@ public class TableSessionService {
                 table.getStatus(),
                 customer == null ? null : customer.getId(),
                 customer == null ? null : customer.getUser().getFullName(),
+                membershipTier == null ? null : membershipTier.getName(),
+                membershipTier == null ? null : membershipTier.getDiscountPercent(),
                 staff == null ? null : staff.getId(),
                 staff == null ? null : staff.getFullName(),
                 session.getStatus(),

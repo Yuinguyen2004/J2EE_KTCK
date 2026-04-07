@@ -18,11 +18,13 @@ export interface TableData {
 interface TableGridProps {
   tables?: TableData[];
   onTableUpdate?: () => void;
+  interactive?: boolean;
 }
 
 export const TableGrid: React.FC<TableGridProps> = ({
   tables = [],
   onTableUpdate,
+  interactive = true,
 }) => {
   const [activeTables, setActiveTables] = useState<{ [key: string]: { elapsed: string; bill: number } }>({});
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
@@ -124,23 +126,25 @@ export const TableGrid: React.FC<TableGridProps> = ({
                   )}
                 </div>
 
-                <button
-                  className="table-action-btn"
-                  title={`Manage ${table.name}`}
-                  onClick={() => {
-                    setSelectedTable(table);
-                    setIsModalOpen(true);
-                  }}
-                >
-                  <span>→</span>
-                </button>
+                {interactive && (
+                  <button
+                    className="table-action-btn"
+                    title={`Manage ${table.name}`}
+                    onClick={() => {
+                      setSelectedTable(table);
+                      setIsModalOpen(true);
+                    }}
+                  >
+                    <span>→</span>
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {selectedTable && (
+      {interactive && selectedTable && (
         <TableActionModal
           isOpen={isModalOpen}
           onClose={() => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { sessionService } from '../services/sessionService';
+import { customerService, type Customer } from '../services/customerService';
+import { sessionService, type Session, type SessionCheckoutResult } from '../services/sessionService';
 import { orderService } from '../services/orderService';
 import { fnbService, type FnbItem } from '../services/fnbService';
 import { getErrorMessage } from '../services/error';
@@ -44,26 +45,61 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
   const [showFBModal, setShowFBModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [checkoutResult, setCheckoutResult] = useState<{
-    duration: number;
-    totalTableCost: number;
-    totalFnbCost: number;
-    totalAmount: number;
-  } | null>(null);
+  const [currentSession, setCurrentSession] = useState<Session | null>(null);
+  const [availableCustomers, setAvailableCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [checkoutResult, setCheckoutResult] = useState<SessionCheckoutResult | null>(null);
 
   useEffect(() => {
-    if (isOpen && sessionId && tableStatus === 'playing') {
+    if (!isOpen) {
+      setCurrentOrder([]);
+      setExistingOrders([]);
+      setCurrentSession(null);
+      setAvailableCustomers([]);
+      setSelectedCustomerId('');
+      setError('');
+      return;
+    }
+
+    setError('');
+
+    if (tableStatus === 'available') {
+      setCustomersLoading(true);
+      void customerService
+        .getAll()
+        .then((customers) => {
+          const activeCustomers = customers
+            .filter((customer) => customer.active)
+            .sort((left, right) => left.fullName.localeCompare(right.fullName));
+          setAvailableCustomers(activeCustomers);
+        })
+        .catch((loadError: unknown) => {
+          setError(getErrorMessage(loadError, 'Failed to load customers'));
+        })
+        .finally(() => {
+          setCustomersLoading(false);
+        });
+      return;
+    }
+
+    if (sessionId && tableStatus === 'playing') {
       void (async () => {
         try {
-          const orders = await orderService.getBySession(sessionId);
+          const [orders, session] = await Promise.all([
+            orderService.getBySession(sessionId),
+            sessionService.getById(sessionId),
+          ]);
+          setCurrentSession(session);
           setExistingOrders(orders.map((order) => ({
             fnbItemId: order.fnbItemId,
             name: order.name,
             price: order.price,
             quantity: order.quantity,
           })));
-        } catch (error) {
-          console.error('Failed to load orders:', error);
+        } catch (loadError) {
+          console.error('Failed to load session details:', loadError);
+          setError(getErrorMessage(loadError, 'Failed to load session details'));
         }
       })();
     }
@@ -73,7 +109,9 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
     setLoading(true);
     setError('');
     try {
-      await sessionService.start(tableId);
+      await sessionService.start(tableId, {
+        customerId: selectedCustomerId || null,
+      });
       onTableUpdate?.();
     } catch (error: unknown) {
       setError(getErrorMessage(error, 'Failed to start session'));
@@ -84,16 +122,17 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
 
   const handleEndSession = async () => {
     if (!sessionId) return;
+
+    if (typeof pricePerHour !== 'number') {
+      setError('No active pricing rule is configured for this table type. Add one in Table Management before checkout.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
       const result = await sessionService.end(sessionId);
-      setCheckoutResult({
-        duration: result.duration || 0,
-        totalTableCost: result.totalTableCost || 0,
-        totalFnbCost: result.totalFnbCost || 0,
-        totalAmount: result.totalAmount || 0,
-      });
+      setCheckoutResult(result);
     } catch (error: unknown) {
       setError(getErrorMessage(error, 'Failed to end session'));
     } finally {
@@ -160,9 +199,17 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
     onTableUpdate?.();
   };
 
+  const selectedCustomer = selectedCustomerId
+    ? availableCustomers.find((customer) => customer.id === selectedCustomerId) || null
+    : null;
+  const sessionDiscountPercent = currentSession?.customerMembershipDiscountPercent || 0;
   const newOrderTotal = currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const existingOrderTotal = existingOrders.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const totalBill = (billAmount || 0) + existingOrderTotal + newOrderTotal;
+  const estimatedSubtotal = (billAmount || 0) + existingOrderTotal + newOrderTotal;
+  const estimatedDiscount = sessionDiscountPercent > 0
+    ? (estimatedSubtotal * sessionDiscountPercent) / 100
+    : 0;
+  const totalBill = Math.max(estimatedSubtotal - estimatedDiscount, 0);
 
   if (!isOpen) return null;
 
@@ -180,22 +227,47 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
             </button>
           </div>
 
+          {checkoutResult.customerName && (
+            <div className="session-assignment-section">
+              <h3>Session Customer</h3>
+              <div className="session-customer-card">
+                <div className="session-customer-name">{checkoutResult.customerName}</div>
+                <div className="session-customer-meta">
+                  {checkoutResult.customerMembershipTierName
+                    ? `${checkoutResult.customerMembershipTierName} member`
+                    : 'Customer attached without membership discount'}
+                </div>
+                {checkoutResult.customerMembershipTierName && (
+                  <div className="session-customer-meta">
+                    Discount applied: {checkoutResult.customerMembershipDiscountPercent || 0}%
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bill-summary">
             <div className="summary-row">
               <span>Duration</span>
-              <span>{checkoutResult.duration} minutes</span>
+              <span>{checkoutResult.duration || 0} minutes</span>
             </div>
             <div className="summary-row">
               <span>Table Cost</span>
-              <span>{formatCurrency(checkoutResult.totalTableCost)}</span>
+              <span>{formatCurrency(checkoutResult.totalTableCost || 0)}</span>
             </div>
+            {(checkoutResult.discountAmount || 0) > 0 && (
+              <div className="summary-row discount">
+                <span>Membership Discount</span>
+                <span>- {formatCurrency(checkoutResult.discountAmount || 0)}</span>
+              </div>
+            )}
             <div className="summary-row">
               <span>F&B Cost</span>
-              <span>{formatCurrency(checkoutResult.totalFnbCost)}</span>
+              <span>{formatCurrency(checkoutResult.totalFnbCost || 0)}</span>
             </div>
             <div className="summary-row total">
               <span>Total Amount</span>
-              <span>{formatCurrency(checkoutResult.totalAmount)}</span>
+              <span>{formatCurrency(checkoutResult.totalAmount || 0)}</span>
             </div>
           </div>
 
@@ -231,6 +303,50 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
           </div>
         )}
 
+        {tableStatus === 'available' && (
+          <div className="session-assignment-section">
+            <h3>Session Customer</h3>
+            <p className="session-assignment-copy">
+              Attach a customer to this session. Membership discounts are applied automatically from that customer&apos;s active tier.
+            </p>
+            <label className="session-input-label" htmlFor="session-customer">
+              Customer
+            </label>
+            <select
+              id="session-customer"
+              className="session-select"
+              value={selectedCustomerId}
+              onChange={(event) => setSelectedCustomerId(event.target.value)}
+              disabled={loading || customersLoading}
+            >
+              <option value="">Walk-in / no customer</option>
+              {availableCustomers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.fullName}
+                  {customer.membershipTierName ? ` • ${customer.membershipTierName}` : ''}
+                </option>
+              ))}
+            </select>
+            {customersLoading && (
+              <div className="session-helper-text">Loading customer list...</div>
+            )}
+            {!customersLoading && availableCustomers.length === 0 && (
+              <div className="session-helper-text">No active customers available to attach.</div>
+            )}
+            {selectedCustomer && (
+              <div className="session-customer-card">
+                <div className="session-customer-name">{selectedCustomer.fullName}</div>
+                <div className="session-customer-meta">{selectedCustomer.email}</div>
+                <div className="session-customer-meta">
+                  {selectedCustomer.membershipTierName
+                    ? `Membership: ${selectedCustomer.membershipTierName}`
+                    : 'No membership tier attached'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tableStatus === 'playing' && (
           <div className="table-info-section">
             <div className="info-item">
@@ -241,6 +357,29 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
               <span className="info-label">Table Cost (est.)</span>
               <span className="info-value">{formatCurrency(billAmount || 0)}</span>
             </div>
+          </div>
+        )}
+
+        {tableStatus === 'playing' && (
+          <div className="session-assignment-section">
+            <h3>Session Customer</h3>
+            {currentSession?.customerName ? (
+              <div className="session-customer-card">
+                <div className="session-customer-name">{currentSession.customerName}</div>
+                <div className="session-customer-meta">
+                  {currentSession.customerMembershipTierName
+                    ? `${currentSession.customerMembershipTierName} member`
+                    : 'Customer attached without membership discount'}
+                </div>
+                {currentSession.customerMembershipTierName && (
+                  <div className="session-customer-meta">
+                    Estimated session discount: {currentSession.customerMembershipDiscountPercent || 0}%
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="session-helper-text">Walk-in session. No membership discount will be applied.</div>
+            )}
           </div>
         )}
 
@@ -296,6 +435,12 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
               <span>Table Cost (est.)</span>
               <span>{formatCurrency(billAmount || 0)}</span>
             </div>
+            {estimatedDiscount > 0 && (
+              <div className="summary-row discount">
+                <span>Membership Discount (est. subtotal)</span>
+                <span>- {formatCurrency(estimatedDiscount)}</span>
+              </div>
+            )}
             {existingOrderTotal > 0 && (
               <div className="summary-row">
                 <span>Existing F&B</span>
@@ -320,7 +465,7 @@ export const TableActionModal: React.FC<TableActionModalProps> = ({
             <button
               className="table-modal-action-btn table-modal-action-btn--primary"
               onClick={handleStartSession}
-              disabled={loading}
+              disabled={loading || customersLoading}
             >
               {loading ? 'Starting...' : 'Start Session'}
             </button>

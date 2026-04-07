@@ -48,7 +48,7 @@ export interface RevenueSummary {
   topTables: { tableId: string; name: string; totalRevenue: number; invoiceCount: number }[];
 }
 
-const INVOICE_PAGE_SIZE = 500;
+const INVOICE_PAGE_SIZE = 100;
 
 const toIsoDate = (year: number, month: number, day: number) =>
   new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
@@ -56,16 +56,27 @@ const toIsoDate = (year: number, month: number, day: number) =>
 const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
 
 const fetchPaidInvoices = async () => {
-  const { data } = await api.get<PageResponse<ServerInvoice>>('/invoices', {
-    params: {
-      status: 'PAID',
-      size: INVOICE_PAGE_SIZE,
-      sortBy: 'paidAt',
-      direction: 'desc',
-    },
-  });
+  const invoices: ServerInvoice[] = [];
+  let currentPage = 0;
+  let totalPages = 1;
 
-  return readPageItems(data);
+  while (currentPage < totalPages) {
+    const { data } = await api.get<PageResponse<ServerInvoice>>('/invoices', {
+      params: {
+        status: 'PAID',
+        page: currentPage,
+        size: INVOICE_PAGE_SIZE,
+        sortBy: 'paidAt',
+        direction: 'desc',
+      },
+    });
+
+    invoices.push(...readPageItems(data));
+    totalPages = data.totalPages;
+    currentPage += 1;
+  }
+
+  return invoices;
 };
 
 const filterInvoicesForMonth = (invoices: ServerInvoice[], year: number, month: number) =>

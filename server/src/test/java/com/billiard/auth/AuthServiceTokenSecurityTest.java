@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.billiard.auth.dto.RegisterRequest;
+import com.billiard.customers.Customer;
+import com.billiard.customers.CustomerRepository;
 import com.billiard.auth.dto.ResetPasswordRequest;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
@@ -28,6 +31,9 @@ class AuthServiceTokenSecurityTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CustomerRepository customerRepository;
 
     @Mock
     private PasswordResetTokenRepository passwordResetTokenRepository;
@@ -53,6 +59,7 @@ class AuthServiceTokenSecurityTest {
     void setUp() {
         authService = new AuthService(
                 userRepository,
+                customerRepository,
                 passwordResetTokenRepository,
                 refreshTokenRepository,
                 passwordEncoder,
@@ -86,6 +93,42 @@ class AuthServiceTokenSecurityTest {
         assertThat(user.getPasswordHash()).isEqualTo("encoded-password");
         verify(refreshTokenRepository).revokeActiveByUserId(eq(14L), any(Instant.class));
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void registerCreatesCustomerProfileForNewCustomerAccount() {
+        org.mockito.ArgumentCaptor<User> userCaptor = org.mockito.ArgumentCaptor.forClass(User.class);
+        org.mockito.ArgumentCaptor<Customer> customerCaptor = org.mockito.ArgumentCaptor.forClass(Customer.class);
+
+        when(userRepository.existsByEmailIgnoreCase("customer@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("CustomerPass1")).thenReturn("encoded-password");
+        when(userRepository.save(userCaptor.capture())).thenAnswer(invocation -> {
+            User savedUser = invocation.getArgument(0);
+            savedUser.setId(55L);
+            return savedUser;
+        });
+        when(customerRepository.findByUser_Id(55L)).thenReturn(Optional.empty());
+        when(customerRepository.save(customerCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtProvider.createAccessToken(any(User.class))).thenReturn("access-token");
+        when(jwtProvider.createRefreshToken(any(User.class))).thenReturn("refresh-token");
+
+        Claims refreshClaims = org.mockito.Mockito.mock(Claims.class);
+        when(refreshClaims.getId()).thenReturn("test-jti");
+        when(refreshClaims.getExpiration()).thenReturn(Date.from(Instant.now().plusSeconds(600)));
+        when(jwtProvider.validateRefreshToken("refresh-token")).thenReturn(refreshClaims);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthenticatedSession session = authService.register(new RegisterRequest(
+                "Customer@example.com",
+                "CustomerPass1",
+                "Customer Example",
+                "0123456789"
+        ));
+
+        assertThat(session.user().email()).isEqualTo("customer@example.com");
+        assertThat(userCaptor.getValue().getRole()).isEqualTo(UserRole.CUSTOMER);
+        assertThat(customerCaptor.getValue().getUser()).isSameAs(userCaptor.getValue());
+        assertThat(customerCaptor.getValue().getMemberSince()).isNotNull();
     }
 
     @Test

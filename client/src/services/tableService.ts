@@ -1,3 +1,4 @@
+import axios from 'axios';
 import api from './api';
 import { readPageItems, type PageResponse, toNumber } from './server';
 
@@ -18,6 +19,7 @@ interface ServerTable {
 interface ServerTableType {
   id: number;
   name: string;
+  description: string | null;
   active: boolean;
 }
 
@@ -27,6 +29,7 @@ interface ServerPricingRule {
   tableTypeName: string;
   blockMinutes: number;
   pricePerMinute: number | string;
+  sortOrder: number;
   active: boolean;
 }
 
@@ -44,6 +47,7 @@ export interface Table {
 export interface TableType {
   id: string;
   name: string;
+  description?: string;
   active: boolean;
 }
 
@@ -54,9 +58,10 @@ export interface PricingRule {
   blockMinutes: number;
   pricePerMinute: number;
   active: boolean;
+  sortOrder: number;
 }
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 100;
 
 const toClientStatus = (status: ServerTableStatus): ClientTableStatus => {
   switch (status) {
@@ -89,8 +94,21 @@ const mapTableTypes = (items: ServerTableType[]): TableType[] =>
   items.map((item) => ({
     id: String(item.id),
     name: item.name,
+    description: item.description || undefined,
     active: item.active,
   }));
+
+const buildTableTypePayload = (tableType: Pick<TableType, 'name'> & Partial<Pick<TableType, 'description' | 'active'>>) => {
+  if (!tableType.name.trim()) {
+    throw new Error('Table type name is required');
+  }
+
+  return {
+    name: tableType.name.trim(),
+    description: tableType.description?.trim() || null,
+    active: tableType.active,
+  };
+};
 
 const mapPricingRules = (items: ServerPricingRule[]): PricingRule[] =>
   items.map((item) => ({
@@ -99,8 +117,26 @@ const mapPricingRules = (items: ServerPricingRule[]): PricingRule[] =>
     tableTypeName: item.tableTypeName,
     blockMinutes: item.blockMinutes,
     pricePerMinute: toNumber(item.pricePerMinute),
+    sortOrder: item.sortOrder,
     active: item.active,
   }));
+
+const buildPricingRulePayload = (
+  pricingRule: Pick<PricingRule, 'tableTypeId' | 'blockMinutes' | 'pricePerMinute' | 'sortOrder'>
+  & Partial<Pick<PricingRule, 'active'>>
+) => {
+  if (!pricingRule.tableTypeId) {
+    throw new Error('Select a table type for the pricing rule');
+  }
+
+  return {
+    tableTypeId: Number(pricingRule.tableTypeId),
+    blockMinutes: pricingRule.blockMinutes,
+    pricePerMinute: pricingRule.pricePerMinute,
+    sortOrder: pricingRule.sortOrder,
+    active: pricingRule.active,
+  };
+};
 
 const buildHourlyRateMap = (pricingRules: PricingRule[]) => {
   const rates = new Map<string, number>();
@@ -115,6 +151,21 @@ const buildHourlyRateMap = (pricingRules: PricingRule[]) => {
     });
 
   return rates;
+};
+
+const loadOptionalPricingRules = async (
+  loadPricingRules: () => Promise<PricingRule[]>
+): Promise<PricingRule[] | null> => {
+  try {
+    return await loadPricingRules();
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      console.warn('Pricing rules are unavailable for this role; continuing without hourly rates.');
+      return null;
+    }
+
+    throw error;
+  }
 };
 
 const mapTables = (items: ServerTable[], rates?: Map<string, number>): Table[] =>
@@ -151,7 +202,9 @@ export const tableService = {
   async getAll(options?: { includePricing?: boolean }): Promise<Table[]> {
     const [{ data: tablePage }, pricingRules] = await Promise.all([
       api.get<PageResponse<ServerTable>>('/tables', { params: { size: PAGE_SIZE } }),
-      options?.includePricing ? this.getPricingRules() : Promise.resolve<PricingRule[] | null>(null),
+      options?.includePricing
+        ? loadOptionalPricingRules(() => this.getPricingRules())
+        : Promise.resolve<PricingRule[] | null>(null),
     ]);
 
     const rates = pricingRules ? buildHourlyRateMap(pricingRules) : undefined;
@@ -161,7 +214,9 @@ export const tableService = {
   async getById(id: string, options?: { includePricing?: boolean }): Promise<Table> {
     const [{ data }, pricingRules] = await Promise.all([
       api.get<ServerTable>(`/tables/${id}`),
-      options?.includePricing ? this.getPricingRules() : Promise.resolve<PricingRule[] | null>(null),
+      options?.includePricing
+        ? loadOptionalPricingRules(() => this.getPricingRules())
+        : Promise.resolve<PricingRule[] | null>(null),
     ]);
 
     const rates = pricingRules ? buildHourlyRateMap(pricingRules) : undefined;
@@ -189,10 +244,50 @@ export const tableService = {
     return mapTableTypes(readPageItems(data));
   },
 
+  async createTableType(tableType: Pick<TableType, 'name'> & Partial<Pick<TableType, 'description' | 'active'>>): Promise<TableType> {
+    const { data } = await api.post<ServerTableType>('/table-types', buildTableTypePayload(tableType));
+    return mapTableTypes([data])[0];
+  },
+
+  async updateTableType(
+    id: string,
+    tableType: Pick<TableType, 'name'> & Partial<Pick<TableType, 'description' | 'active'>>
+  ): Promise<TableType> {
+    const { data } = await api.put<ServerTableType>(`/table-types/${id}`, buildTableTypePayload(tableType));
+    return mapTableTypes([data])[0];
+  },
+
+  async setTableTypeActive(id: string, active: boolean): Promise<TableType> {
+    const { data } = await api.patch<ServerTableType>(`/table-types/${id}/active`, { active });
+    return mapTableTypes([data])[0];
+  },
+
   async getPricingRules(): Promise<PricingRule[]> {
     const { data } = await api.get<PageResponse<ServerPricingRule>>('/pricing-rules', {
       params: { size: PAGE_SIZE },
     });
     return mapPricingRules(readPageItems(data));
+  },
+
+  async createPricingRule(
+    pricingRule: Pick<PricingRule, 'tableTypeId' | 'blockMinutes' | 'pricePerMinute' | 'sortOrder'>
+    & Partial<Pick<PricingRule, 'active'>>
+  ): Promise<PricingRule> {
+    const { data } = await api.post<ServerPricingRule>('/pricing-rules', buildPricingRulePayload(pricingRule));
+    return mapPricingRules([data])[0];
+  },
+
+  async updatePricingRule(
+    id: string,
+    pricingRule: Pick<PricingRule, 'tableTypeId' | 'blockMinutes' | 'pricePerMinute' | 'sortOrder'>
+    & Partial<Pick<PricingRule, 'active'>>
+  ): Promise<PricingRule> {
+    const { data } = await api.put<ServerPricingRule>(`/pricing-rules/${id}`, buildPricingRulePayload(pricingRule));
+    return mapPricingRules([data])[0];
+  },
+
+  async setPricingRuleActive(id: string, active: boolean): Promise<PricingRule> {
+    const { data } = await api.patch<ServerPricingRule>(`/pricing-rules/${id}/active`, { active });
+    return mapPricingRules([data])[0];
   },
 };

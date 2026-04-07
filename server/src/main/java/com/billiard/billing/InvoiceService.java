@@ -17,6 +17,7 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -92,12 +93,17 @@ public class InvoiceService {
                 .stream()
                 .map(Order::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal subtotalAmount = pricing.grossAmount().add(orderAmount);
+        BigDecimal discountAmount = calculateSubtotalDiscount(
+                subtotalAmount,
+                resolveDiscountPercent(session)
+        );
 
         invoice.setCustomer(session.getCustomer());
         invoice.setTableAmount(pricing.grossAmount());
         invoice.setOrderAmount(orderAmount);
-        invoice.setDiscountAmount(pricing.discountAmount());
-        invoice.setTotalAmount(pricing.netTableAmount().add(orderAmount));
+        invoice.setDiscountAmount(discountAmount);
+        invoice.setTotalAmount(subtotalAmount.subtract(discountAmount));
 
         session.setTotalAmount(invoice.getTotalAmount());
         tableSessionRepository.save(session);
@@ -228,6 +234,19 @@ public class InvoiceService {
             return BigDecimal.ZERO;
         }
         return session.getCustomer().getMembershipTier().getDiscountPercent();
+    }
+
+    private BigDecimal calculateSubtotalDiscount(
+            BigDecimal subtotalAmount,
+            BigDecimal discountPercent
+    ) {
+        if (subtotalAmount == null || discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return subtotalAmount
+                .multiply(discountPercent)
+                .divide(BigDecimal.valueOf(100L), 2, RoundingMode.HALF_UP);
     }
 
     private TableSession findCompletedSession(Long sessionId) {

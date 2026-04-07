@@ -5,6 +5,8 @@ import com.billiard.auth.dto.ForgotPasswordRequest;
 import com.billiard.auth.dto.LoginRequest;
 import com.billiard.auth.dto.RegisterRequest;
 import com.billiard.auth.dto.ResetPasswordRequest;
+import com.billiard.customers.Customer;
+import com.billiard.customers.CustomerRepository;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
 import com.billiard.users.UserRole;
@@ -34,6 +36,7 @@ public class AuthService {
             "$2a$10$dummyHashToPreventTimingSideChannel000000000000000000";
 
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -44,6 +47,7 @@ public class AuthService {
 
     public AuthService(
             UserRepository userRepository,
+            CustomerRepository customerRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
@@ -53,6 +57,7 @@ public class AuthService {
             OAuthExchangeCodeStore oauthExchangeCodeStore
     ) {
         this.userRepository = userRepository;
+        this.customerRepository = customerRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -79,6 +84,7 @@ public class AuthService {
         user.setActive(true);
 
         User savedUser = userRepository.save(user);
+        ensureCustomerProfile(savedUser);
         return authenticatedSession(savedUser);
     }
 
@@ -201,7 +207,7 @@ public class AuthService {
         String email = oauthExchangeCodeStore.consumeCode(code);
         User user = loadActiveUser(email);
 
-        if (user.getProvider() != AuthProvider.GOOGLE) {
+        if (user.getRole() == UserRole.CUSTOMER && user.getProvider() != AuthProvider.GOOGLE) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "Use the original sign-in method for this account"
@@ -293,6 +299,10 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is disabled");
         }
 
+        if (existingUser.getRole() != UserRole.CUSTOMER) {
+            return existingUser;
+        }
+
         if (existingUser.getProvider() != AuthProvider.GOOGLE) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -310,7 +320,9 @@ public class AuthService {
         user.setRole(UserRole.CUSTOMER);
         user.setProvider(AuthProvider.GOOGLE);
         user.setActive(true);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        ensureCustomerProfile(savedUser);
+        return savedUser;
     }
 
     private User loadActiveUser(String email) {
@@ -325,6 +337,23 @@ public class AuthService {
         }
 
         return user;
+    }
+
+    private void ensureCustomerProfile(User user) {
+        if (user.getRole() != UserRole.CUSTOMER || user.getId() == null) {
+            return;
+        }
+
+        customerRepository.findByUser_Id(user.getId()).ifPresentOrElse(
+                existing -> {
+                },
+                () -> {
+                    Customer customer = new Customer();
+                    customer.setUser(user);
+                    customer.setMemberSince(Instant.now());
+                    customerRepository.save(customer);
+                }
+        );
     }
 
     private AuthUserResponse toAuthUser(User user) {

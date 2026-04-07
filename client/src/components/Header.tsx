@@ -31,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [notificationCount, setNotificationCount] = useState(0);
+  const isCustomer = user?.role === 'customer';
+  const showNotifications = !isCustomer;
 
   const loadNotifications = useEffectEvent(async (currentUser: AuthUser) => {
     try {
@@ -44,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !showNotifications) {
       return;
     }
 
@@ -60,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
       unsubscribe();
       window.clearInterval(intervalId);
     };
-  }, [user]);
+  }, [showNotifications, user]);
 
   const handleLogout = () => {
     onLogout();
@@ -80,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Search size={18} className="search-icon" />
           <input
             type="text"
-            placeholder="Search tables, orders, reports..."
+            placeholder={isCustomer ? 'Search tables, menu, reservations...' : 'Search tables, orders, reports...'}
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             className="search-input"
@@ -90,16 +92,18 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right Side Actions */}
         <div className="header-actions">
           {/* Notifications */}
-          <button
-            className={`notification-btn ${currentPage === 'notifications' ? 'active' : ''}`}
-            aria-label="Notifications"
-            onClick={() => handleNavigate('notifications')}
-          >
-            <Bell size={20} />
-            {notificationCount > 0 && (
-              <span className="notification-badge">{notificationCount}</span>
-            )}
-          </button>
+          {showNotifications && (
+            <button
+              className={`notification-btn ${currentPage === 'notifications' ? 'active' : ''}`}
+              aria-label="Notifications"
+              onClick={() => handleNavigate('notifications')}
+            >
+              <Bell size={20} />
+              {notificationCount > 0 && (
+                <span className="notification-badge">{notificationCount}</span>
+              )}
+            </button>
+          )}
 
           {/* User Profile Dropdown */}
           <div className="profile-dropdown">
@@ -124,15 +128,19 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Dropdown Menu */}
             {isProfileOpen && (
               <div className="dropdown-menu">
-                <button className="dropdown-item" onClick={() => handleNavigate('my-profile')}>
-                  <User size={16} />
-                  <span>My Profile</span>
-                </button>
-                <button className="dropdown-item" onClick={() => handleNavigate('notifications')}>
-                  <Bell size={16} />
-                  <span>Notifications</span>
-                </button>
-                <div className="dropdown-divider" />
+                {!isCustomer && (
+                  <>
+                    <button className="dropdown-item" onClick={() => handleNavigate('my-profile')}>
+                      <User size={16} />
+                      <span>My Profile</span>
+                    </button>
+                    <button className="dropdown-item" onClick={() => handleNavigate('notifications')}>
+                      <Bell size={16} />
+                      <span>Notifications</span>
+                    </button>
+                    <div className="dropdown-divider" />
+                  </>
+                )}
                 <button
                   className="dropdown-item logout"
                   onClick={handleLogout}

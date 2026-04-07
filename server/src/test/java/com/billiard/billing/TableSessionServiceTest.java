@@ -25,6 +25,7 @@ import com.billiard.tables.dto.BilliardTableResponse;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
 import com.billiard.users.UserRole;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -101,7 +102,13 @@ class TableSessionServiceTest {
         lenient().when(billiardTableRepository.findById(table.getId())).thenReturn(Optional.of(table));
         lenient().when(billiardTableRepository.findByIdForUpdate(table.getId())).thenReturn(Optional.of(table));
         lenient().when(invoiceService.generateForSession(anyLong())).thenAnswer(invocation ->
-                buildInvoiceResponse(invocation.getArgument(0), "150000.00")
+                buildInvoiceResponse(invocation.getArgument(0), "150000.00", InvoiceStatus.DRAFT)
+        );
+        lenient().when(invoiceService.issue(anyLong(), any())).thenAnswer(invocation ->
+                buildInvoiceResponse(storedSession != null ? storedSession.getId() : invocation.getArgument(0), "150000.00", InvoiceStatus.ISSUED)
+        );
+        lenient().when(invoiceService.pay(anyLong(), any())).thenAnswer(invocation ->
+                buildInvoiceResponse(storedSession != null ? storedSession.getId() : invocation.getArgument(0), "150000.00", InvoiceStatus.PAID)
         );
         lenient().when(tableSessionRepository.findFirstByTable_IdAndStatusInOrderByStartedAtDesc(
                 eq(table.getId()),
@@ -123,6 +130,8 @@ class TableSessionServiceTest {
         assertThat(response.status()).isEqualTo(SessionStatus.ACTIVE);
         assertThat(response.tableStatus()).isEqualTo(TableStatus.IN_USE);
         assertThat(response.customerId()).isEqualTo(customer.getId());
+        assertThat(response.customerMembershipTierName()).isEqualTo("Silver");
+        assertThat(response.customerMembershipDiscountPercent()).isEqualByComparingTo("10");
         assertThat(response.staffId()).isEqualTo(staff.getId());
         assertThat(response.notes()).isEqualTo("first rack");
         assertThat(storedSession.getTable().getStatus()).isEqualTo(TableStatus.IN_USE);
@@ -237,8 +246,11 @@ class TableSessionServiceTest {
         assertThat(ended.session().endedAt()).isEqualTo(clock.instant());
         assertThat(ended.invoice().sessionId()).isEqualTo(storedSession.getId());
         assertThat(ended.invoice().totalAmount()).isEqualByComparingTo("150000.00");
+        assertThat(ended.invoice().status()).isEqualTo(InvoiceStatus.PAID);
         assertThat(storedPauses.getFirst().getEndedAt()).isEqualTo(Instant.parse("2026-03-28T02:30:00Z"));
         verify(invoiceService).generateForSession(storedSession.getId());
+        verify(invoiceService).issue(ended.invoice().id(), staff.getEmail());
+        verify(invoiceService).pay(ended.invoice().id(), staff.getEmail());
         verify(floorEvents, org.mockito.Mockito.times(4)).tableStatusChanged(any(BilliardTableResponse.class));
         verify(floorEvents, org.mockito.Mockito.times(4)).sessionChanged(any());
     }
@@ -266,6 +278,8 @@ class TableSessionServiceTest {
         assertThat(ended.session().totalPausedSeconds()).isEqualTo(Duration.ofMinutes(15).getSeconds());
         assertThat(ended.session().billableSeconds()).isEqualTo(Duration.ofMinutes(5).getSeconds());
         verify(invoiceService).generateForSession(storedSession.getId());
+        verify(invoiceService).issue(ended.invoice().id(), staff.getEmail());
+        verify(invoiceService).pay(ended.invoice().id(), staff.getEmail());
         verify(sessionPauseRepository).findFirstBySession_IdAndEndedAtIsNullOrderByStartedAtDesc(
                 storedSession.getId()
         );
@@ -368,6 +382,7 @@ class TableSessionServiceTest {
         MembershipTier membershipTier = new MembershipTier();
         membershipTier.setId(40L);
         membershipTier.setName("Silver");
+        membershipTier.setDiscountPercent(new BigDecimal("10"));
         membershipTier.setActive(true);
 
         Customer customer = new Customer();
@@ -377,7 +392,11 @@ class TableSessionServiceTest {
         return customer;
     }
 
-    private static InvoiceResponse buildInvoiceResponse(Long sessionId, String totalAmount) {
+    private static InvoiceResponse buildInvoiceResponse(
+            Long sessionId,
+            String totalAmount,
+            InvoiceStatus status
+    ) {
         return new InvoiceResponse(
                 500L,
                 sessionId,
@@ -385,15 +404,15 @@ class TableSessionServiceTest {
                 "Table 10",
                 20L,
                 "Customer One",
-                null,
-                null,
-                InvoiceStatus.DRAFT,
+                status == InvoiceStatus.DRAFT ? null : 15L,
+                status == InvoiceStatus.DRAFT ? null : "Floor Staff",
+                status,
                 new java.math.BigDecimal("120000.00"),
                 new java.math.BigDecimal("30000.00"),
                 java.math.BigDecimal.ZERO,
                 new java.math.BigDecimal(totalAmount),
-                null,
-                null,
+                status == InvoiceStatus.DRAFT ? null : Instant.parse("2026-03-28T03:00:00Z"),
+                status == InvoiceStatus.PAID ? Instant.parse("2026-03-28T03:01:00Z") : null,
                 null,
                 Instant.parse("2026-03-28T03:00:00Z"),
                 Instant.parse("2026-03-28T03:00:00Z")

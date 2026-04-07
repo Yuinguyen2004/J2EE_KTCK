@@ -130,9 +130,9 @@ class InvoiceServiceTest {
         assertThat(invoice.status()).isEqualTo(InvoiceStatus.DRAFT);
         assertThat(invoice.tableAmount()).isEqualByComparingTo("60000.00");
         assertThat(invoice.orderAmount()).isEqualByComparingTo("12000.00");
-        assertThat(invoice.discountAmount()).isEqualByComparingTo("6000.00");
-        assertThat(invoice.totalAmount()).isEqualByComparingTo("66000.00");
-        assertThat(completedSession.getTotalAmount()).isEqualByComparingTo("66000.00");
+        assertThat(invoice.discountAmount()).isEqualByComparingTo("7200.00");
+        assertThat(invoice.totalAmount()).isEqualByComparingTo("64800.00");
+        assertThat(completedSession.getTotalAmount()).isEqualByComparingTo("64800.00");
     }
 
     @Test
@@ -185,7 +185,8 @@ class InvoiceServiceTest {
         var invoice = invoiceService.generateForSession(completedSession.getId());
 
         assertThat(invoice.orderAmount()).isEqualByComparingTo("12000.00");
-        assertThat(invoice.totalAmount()).isEqualByComparingTo("93000.00");
+        assertThat(invoice.discountAmount()).isEqualByComparingTo("10200.00");
+        assertThat(invoice.totalAmount()).isEqualByComparingTo("91800.00");
     }
 
     private Invoice storeDraftInvoice() {

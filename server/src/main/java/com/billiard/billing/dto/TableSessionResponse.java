@@ -13,6 +13,8 @@ public record TableSessionResponse(
         TableStatus tableStatus,
         Long customerId,
         String customerName,
+        String customerMembershipTierName,
+        BigDecimal customerMembershipDiscountPercent,
         Long staffId,
         String staffName,
         SessionStatus status,

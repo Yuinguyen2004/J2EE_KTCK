@@ -9,6 +9,8 @@ interface ServerSession {
   tableName: string;
   customerId: number | null;
   customerName: string | null;
+  customerMembershipTierName: string | null;
+  customerMembershipDiscountPercent: number | string | null;
   staffId: number | null;
   staffName: string | null;
   status: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
@@ -26,6 +28,7 @@ interface ServerInvoice {
   totalAmount: number | string;
   tableAmount: number | string;
   orderAmount: number | string;
+  discountAmount: number | string;
 }
 
 interface ServerEndSessionResponse {
@@ -37,6 +40,10 @@ export interface Session {
   _id: string;
   tableId: string;
   tableName: string;
+  customerId?: string;
+  customerName?: string;
+  customerMembershipTierName?: string;
+  customerMembershipDiscountPercent?: number;
   staffId?: string;
   staffName?: string;
   startTime: string;
@@ -50,12 +57,19 @@ export interface Session {
 
 export interface SessionCheckoutResult extends Session {
   invoiceId: string;
+  discountAmount?: number;
 }
 
 const mapSession = (session: ServerSession): Session => ({
   _id: String(session.id),
   tableId: String(session.tableId),
   tableName: session.tableName,
+  customerId: session.customerId ? String(session.customerId) : undefined,
+  customerName: session.customerName || undefined,
+  customerMembershipTierName: session.customerMembershipTierName || undefined,
+  customerMembershipDiscountPercent: session.customerMembershipDiscountPercent == null
+    ? undefined
+    : toNumber(session.customerMembershipDiscountPercent),
   staffId: session.staffId ? String(session.staffId) : undefined,
   staffName: session.staffName || undefined,
   startTime: session.startedAt,
@@ -69,6 +83,7 @@ const mapCheckout = (payload: ServerEndSessionResponse): SessionCheckoutResult =
   ...mapSession(payload.session),
   totalTableCost: toNumber(payload.invoice.tableAmount),
   totalFnbCost: toNumber(payload.invoice.orderAmount),
+  discountAmount: toNumber(payload.invoice.discountAmount),
   totalAmount: toNumber(payload.invoice.totalAmount),
   invoiceId: String(payload.invoice.id),
   status: 'completed',
@@ -88,11 +103,18 @@ const getActiveSessionForTable = async (tableId: string): Promise<Session | null
 };
 
 export const sessionService = {
-  async start(tableId: string): Promise<Session> {
+  async start(
+    tableId: string,
+    input?: {
+      customerId?: string | null;
+      overrideReserved?: boolean;
+      notes?: string | null;
+    },
+  ): Promise<Session> {
     const { data } = await api.post<ServerSession>(`/tables/${tableId}/start-session`, {
-      customerId: null,
-      overrideReserved: false,
-      notes: null,
+      customerId: input?.customerId ? Number(input.customerId) : null,
+      overrideReserved: input?.overrideReserved ?? false,
+      notes: input?.notes?.trim() || null,
     });
     return mapSession(data);
   },

@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import com.billiard.auth.JwtProvider;
+import com.billiard.chat.ChatEvents;
+import com.billiard.customers.Customer;
+import com.billiard.customers.CustomerRepository;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
 import com.billiard.users.UserRole;
@@ -33,13 +36,17 @@ class FloorWebSocketAuthChannelInterceptorTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private CustomerRepository customerRepository;
+
     private FloorWebSocketAuthChannelInterceptor floorWebSocketAuthChannelInterceptor;
 
     @BeforeEach
     void setUp() {
         floorWebSocketAuthChannelInterceptor = new FloorWebSocketAuthChannelInterceptor(
                 jwtProvider,
-                userRepository
+                userRepository,
+                customerRepository
         );
     }
 
@@ -77,6 +84,33 @@ class FloorWebSocketAuthChannelInterceptorTest {
                 MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders()),
                 null
         )).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void subscribeAllowsCustomerOnOwnedChatTopic() {
+        User customerUser = buildUser("customer@example.com", UserRole.CUSTOMER);
+        customerUser.setId(8L);
+        Customer customer = new Customer();
+        customer.setId(18L);
+        customer.setUser(customerUser);
+
+        when(customerRepository.findByUser_EmailIgnoreCase("customer@example.com"))
+                .thenReturn(Optional.of(customer));
+
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination(ChatEvents.customerTopic(18L));
+        accessor.setUser(new UsernamePasswordAuthenticationToken(
+                "customer@example.com",
+                null,
+                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"))
+        ));
+
+        Message<?> intercepted = floorWebSocketAuthChannelInterceptor.preSend(
+                MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders()),
+                null
+        );
+
+        assertThat(intercepted).isNotNull();
     }
 
     private static Claims claimsFor(String email) {

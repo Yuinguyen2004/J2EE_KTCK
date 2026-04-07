@@ -32,7 +32,7 @@ export interface OrderLineItem {
   createdAt: string;
 }
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 100;
 
 const flattenOrderItems = (orders: ServerOrder[]): OrderLineItem[] =>
   orders.flatMap((order) =>

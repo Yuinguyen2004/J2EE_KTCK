@@ -67,7 +67,7 @@ export const StaffTableOperations: React.FC<StaffTableOperationsProps> = ({
 
   const loadOperationsData = useEffectEvent(async () => {
     try {
-      const tablesData = await tableService.getAll();
+      const tablesData = await tableService.getAll({ includePricing: true });
       const sessionsData = await Promise.all(
         tablesData.map((table) => sessionService.getByTable(table._id))
       );

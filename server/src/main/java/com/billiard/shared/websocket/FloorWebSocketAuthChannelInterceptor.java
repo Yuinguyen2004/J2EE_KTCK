@@ -1,9 +1,10 @@
 package com.billiard.shared.websocket;
 
 import com.billiard.auth.JwtProvider;
+import com.billiard.chat.ChatEvents;
+import com.billiard.customers.CustomerRepository;
 import com.billiard.users.User;
 import com.billiard.users.UserRepository;
-import com.billiard.users.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import java.security.Principal;
@@ -26,13 +27,16 @@ public class FloorWebSocketAuthChannelInterceptor implements ChannelInterceptor 
 
     private final JwtProvider jwtProvider;
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
 
     public FloorWebSocketAuthChannelInterceptor(
             JwtProvider jwtProvider,
-            UserRepository userRepository
+            UserRepository userRepository,
+            CustomerRepository customerRepository
     ) {
         this.jwtProvider = jwtProvider;
         this.userRepository = userRepository;
+        this.customerRepository = customerRepository;
     }
 
     @Override
@@ -53,7 +57,7 @@ public class FloorWebSocketAuthChannelInterceptor implements ChannelInterceptor 
         }
 
         if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
-            ensureStaff(accessor.getUser());
+            authorizeSubscription(accessor);
         }
 
         return message;
@@ -70,9 +74,6 @@ public class FloorWebSocketAuthChannelInterceptor implements ChannelInterceptor 
             User user = userRepository.findByEmailIgnoreCase(claims.getSubject())
                     .filter(User::isActive)
                     .orElseThrow(() -> new AccessDeniedException("User is not active"));
-            if (user.getRole() == UserRole.CUSTOMER) {
-                throw new AccessDeniedException("Customers cannot subscribe to floor updates");
-            }
 
             return new UsernamePasswordAuthenticationToken(
                     user.getEmail(),
@@ -84,12 +85,51 @@ public class FloorWebSocketAuthChannelInterceptor implements ChannelInterceptor 
         }
     }
 
+    private void authorizeSubscription(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (FloorEventPublisher.FLOOR_TOPIC.equals(destination)
+                || ChatEvents.STAFF_TOPIC.equals(destination)) {
+            ensureStaff(accessor.getUser());
+            return;
+        }
+
+        if (destination != null && destination.startsWith("/topic/chat/customer/")) {
+            ensureCustomerDestination(accessor.getUser(), destination);
+        }
+    }
+
     private void ensureStaff(Principal principal) {
         if (!(principal instanceof UsernamePasswordAuthenticationToken authentication)
                 || authentication.getAuthorities().stream().anyMatch(
                         authority -> "ROLE_CUSTOMER".equals(authority.getAuthority())
                 )) {
             throw new AccessDeniedException("Only staff clients can subscribe to floor updates");
+        }
+    }
+
+    private void ensureCustomerDestination(Principal principal, String destination) {
+        if (!(principal instanceof UsernamePasswordAuthenticationToken authentication)
+                || authentication.getAuthorities().stream().noneMatch(
+                        authority -> "ROLE_CUSTOMER".equals(authority.getAuthority())
+                )) {
+            throw new AccessDeniedException("Only the owning customer can subscribe to this chat");
+        }
+
+        Long customerId = parseCustomerId(destination);
+        Long authenticatedCustomerId = customerRepository.findByUser_EmailIgnoreCase(authentication.getName())
+                .map(customer -> customer.getId())
+                .orElseThrow(() -> new AccessDeniedException("Customer profile not found"));
+        if (!authenticatedCustomerId.equals(customerId)) {
+            throw new AccessDeniedException("Customers can subscribe only to their own chat");
+        }
+    }
+
+    private Long parseCustomerId(String destination) {
+        String rawId = destination.substring("/topic/chat/customer/".length());
+        try {
+            return Long.valueOf(rawId);
+        } catch (NumberFormatException exception) {
+            throw new AccessDeniedException("Invalid customer chat destination", exception);
         }
     }
 }

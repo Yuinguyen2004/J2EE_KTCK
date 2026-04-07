@@ -1,18 +1,26 @@
 import { useState } from 'react'
 import { useAuth } from './context/useAuth'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import FBManagement from './pages/FBManagement'
 import TableManagement from './pages/TableManagement'
 import RevenueAnalytics from './pages/RevenueAnalytics'
 import StaffMenu from './pages/StaffMenu'
 import StaffTableOperations from './pages/StaffTableOperations'
+import StaffReservations from './pages/StaffReservations'
+import CrmManagement from './pages/CrmManagement'
+import CustomerDashboard from './pages/CustomerDashboard'
+import CustomerMenu from './pages/CustomerMenu'
+import CustomerReservations from './pages/CustomerReservations'
+import CustomerChat from './pages/CustomerChat'
+import StaffChatInbox from './pages/StaffChatInbox'
 import MyProfile from './pages/MyProfile'
 import Notifications from './pages/Notifications'
-import { getDefaultPageForRole, isOperationalUserRole, isPageAllowedForRole, type AppPage } from './utils/navigation'
+import { getDefaultPageForRole, isPageAllowedForRole, type AppPage } from './utils/navigation'
 import './App.css'
 
-type Page = 'login' | AppPage
+type Page = 'login' | 'register' | AppPage
 
 function App() {
   const { user, isAuthenticated, isLoading, logout } = useAuth()
@@ -32,33 +40,15 @@ function App() {
   }
 
   const handleNavigate = (page: AppPage) => {
-    if (user && isOperationalUserRole(user.role) && isPageAllowedForRole(user.role, page)) {
+    if (user && isPageAllowedForRole(user.role, page)) {
       setCurrentPage(page)
     }
   }
 
   if (!isAuthenticated || !user) {
-    return <Login onSuccess={() => setCurrentPage('dashboard')} />
-  }
-
-  if (!isOperationalUserRole(user.role)) {
-    return (
-      <div className="auth-container">
-        <div className="auth-form-container">
-          <div className="auth-form-wrapper">
-            <div className="auth-header">
-              <h1>Operations Access Only</h1>
-              <p className="subtitle">
-                This client is for staff and admin workflows. Customer accounts are not supported here.
-              </p>
-            </div>
-            <button type="button" className="button button-primary" onClick={handleLogout}>
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+    return currentPage === 'register'
+      ? <Register onSuccess={() => setCurrentPage('login')} onGoToLogin={() => setCurrentPage('login')} />
+      : <Login onSuccess={() => setCurrentPage('login')} onGoToRegister={() => setCurrentPage('register')} />
   }
 
   const resolvedPage = currentPage === 'login' || !isPageAllowedForRole(user.role, currentPage)
@@ -69,6 +59,9 @@ function App() {
     <div className="app-container">
       {resolvedPage === 'dashboard' && (
         <Dashboard onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'reservations' && (
+        <StaffReservations onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
       )}
       {resolvedPage === 'fb-management' && (
         <FBManagement onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
@@ -84,6 +77,24 @@ function App() {
       )}
       {resolvedPage === 'staff-menu' && (
         <StaffMenu onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'staff-chat' && (
+        <StaffChatInbox onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'crm' && (
+        <CrmManagement onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'customer-dashboard' && (
+        <CustomerDashboard onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'customer-menu' && (
+        <CustomerMenu onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'customer-reservations' && (
+        <CustomerReservations onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
+      )}
+      {resolvedPage === 'customer-chat' && (
+        <CustomerChat onLogout={handleLogout} onNavigate={handleNavigate} user={user} />
       )}
       {resolvedPage === 'my-profile' && (
         <MyProfile onLogout={handleLogout} onNavigate={handleNavigate} user={user} />

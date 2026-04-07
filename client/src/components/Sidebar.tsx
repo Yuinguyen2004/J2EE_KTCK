@@ -7,7 +7,10 @@ import {
   UtensilsCrossed,
   BarChart3,
   User,
+  Users,
   Bell,
+  CalendarClock,
+  MessageSquare,
 } from 'lucide-react';
 import { getNavigationItems, type AppPage, type UserRole } from '../utils/navigation';
 import '../styles/sidebar.css';
@@ -28,11 +31,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const iconMap: Record<AppPage, typeof Home> = {
     dashboard: Home,
+    reservations: CalendarClock,
     'table-management': Layers,
     'fb-management': UtensilsCrossed,
+    crm: Users,
     'revenue-reports': BarChart3,
     'staff-tables': Layers,
     'staff-menu': UtensilsCrossed,
+    'staff-chat': MessageSquare,
+    'customer-dashboard': Home,
+    'customer-menu': UtensilsCrossed,
+    'customer-reservations': CalendarClock,
+    'customer-chat': MessageSquare,
     'my-profile': User,
     notifications: Bell,
   };
@@ -108,10 +118,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="sidebar-info">
             {!isCollapsed && (
               <>
-                <div className="info-title">Shift Info</div>
+                <div className="info-title">{userRole === 'customer' ? 'Portal Access' : 'Shift Info'}</div>
                 <div className="info-item">
-                  <span className="label">Status:</span>
-                  <span className="value active-status">On Duty</span>
+                  <span className="label">{userRole === 'customer' ? 'Mode:' : 'Status:'}</span>
+                  <span className="value active-status">
+                    {userRole === 'customer' ? 'Customer' : 'On Duty'}
+                  </span>
                 </div>
               </>
             )}

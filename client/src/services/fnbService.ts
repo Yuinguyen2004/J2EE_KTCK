@@ -19,7 +19,7 @@ export interface FnbItem {
   isAvailable: boolean;
 }
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 100;
 
 const mapMenuItems = (items: ServerMenuItem[]): FnbItem[] =>
   items.map((item) => ({
