@@ -71,7 +71,7 @@ public class AuthService {
     public AuthenticatedSession register(RegisterRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
         if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration could not be completed");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
 
         User user = new User();

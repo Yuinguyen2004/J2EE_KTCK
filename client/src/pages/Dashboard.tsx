@@ -24,7 +24,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout = () => {}, onNav
     try {
       const tablesData = await tableService.getAll({ includePricing: true });
       const sessionsData = await Promise.all(
-        tablesData.map((table) => sessionService.getByTable(table._id))
+        tablesData.map((table) => sessionService.getByTable(table._id, { tableStatus: table.status }))
       );
 
       setTables(tablesData);

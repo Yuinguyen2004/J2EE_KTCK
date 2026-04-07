@@ -1,9 +1,11 @@
 package com.billiard.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTokenSecurityTest {
@@ -129,6 +133,26 @@ class AuthServiceTokenSecurityTest {
         assertThat(userCaptor.getValue().getRole()).isEqualTo(UserRole.CUSTOMER);
         assertThat(customerCaptor.getValue().getUser()).isSameAs(userCaptor.getValue());
         assertThat(customerCaptor.getValue().getMemberSince()).isNotNull();
+    }
+
+    @Test
+    void registerRejectsDuplicateEmailWithConflictMessage() {
+        when(userRepository.existsByEmailIgnoreCase("customer@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.register(new RegisterRequest(
+                "customer@example.com",
+                "CustomerPass1",
+                "Customer Example",
+                "0123456789"
+        )))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(exception -> {
+                    ResponseStatusException responseStatusException = (ResponseStatusException) exception;
+                    assertThat(responseStatusException.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(responseStatusException.getReason()).isEqualTo("Email already exists");
+                });
+
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test

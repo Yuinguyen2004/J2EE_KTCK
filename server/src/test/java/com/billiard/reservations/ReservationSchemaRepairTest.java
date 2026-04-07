@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 
@@ -21,6 +22,8 @@ class ReservationSchemaRepairTest {
     @Test
     void runDropsNotNullWhenLegacyReservationSchemaStillRequiresTable() throws Exception {
         ReservationSchemaRepair repair = new ReservationSchemaRepair(jdbcTemplate);
+        when(jdbcTemplate.execute(org.mockito.ArgumentMatchers.<ConnectionCallback<String>>any()))
+                .thenReturn("PostgreSQL");
         when(jdbcTemplate.query(
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.<ResultSetExtractor<String>>any()
@@ -34,6 +37,8 @@ class ReservationSchemaRepairTest {
     @Test
     void runSkipsAlterWhenReservationTableAlreadyAllowsNullTableAssignments() throws Exception {
         ReservationSchemaRepair repair = new ReservationSchemaRepair(jdbcTemplate);
+        when(jdbcTemplate.execute(org.mockito.ArgumentMatchers.<ConnectionCallback<String>>any()))
+                .thenReturn("PostgreSQL");
         when(jdbcTemplate.query(
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.<ResultSetExtractor<String>>any()
@@ -41,6 +46,21 @@ class ReservationSchemaRepairTest {
 
         repair.run(new DefaultApplicationArguments(new String[0]));
 
+        verify(jdbcTemplate, never()).execute(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void runSkipsRepairOutsidePostgreSql() throws Exception {
+        ReservationSchemaRepair repair = new ReservationSchemaRepair(jdbcTemplate);
+        when(jdbcTemplate.execute(org.mockito.ArgumentMatchers.<ConnectionCallback<String>>any()))
+                .thenReturn("H2");
+
+        repair.run(new DefaultApplicationArguments(new String[0]));
+
+        verify(jdbcTemplate, never()).query(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<ResultSetExtractor<String>>any()
+        );
         verify(jdbcTemplate, never()).execute(org.mockito.ArgumentMatchers.anyString());
     }
 }

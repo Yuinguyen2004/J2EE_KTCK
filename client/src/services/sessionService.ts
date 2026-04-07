@@ -1,6 +1,6 @@
 import axios from 'axios';
 import api from './api';
-import { tableService } from './tableService';
+import { tableService, type Table } from './tableService';
 import { toNumber } from './server';
 
 interface ServerSession {
@@ -60,6 +60,10 @@ export interface SessionCheckoutResult extends Session {
   discountAmount?: number;
 }
 
+interface GetByTableOptions {
+  tableStatus?: Table['status'];
+}
+
 const mapSession = (session: ServerSession): Session => ({
   _id: String(session.id),
   tableId: String(session.tableId),
@@ -89,7 +93,16 @@ const mapCheckout = (payload: ServerEndSessionResponse): SessionCheckoutResult =
   status: 'completed',
 });
 
-const getActiveSessionForTable = async (tableId: string): Promise<Session | null> => {
+const canHaveActiveSession = (tableStatus?: Table['status']) => tableStatus === 'playing';
+
+const getActiveSessionForTable = async (
+  tableId: string,
+  options?: GetByTableOptions,
+): Promise<Session | null> => {
+  if (options?.tableStatus && !canHaveActiveSession(options.tableStatus)) {
+    return null;
+  }
+
   try {
     const { data } = await api.get<ServerSession>(`/tables/${tableId}/active-session`);
     return mapSession(data);
@@ -129,8 +142,8 @@ export const sessionService = {
     return mapSession(data);
   },
 
-  async getByTable(tableId: string): Promise<Session | null> {
-    return getActiveSessionForTable(tableId);
+  async getByTable(tableId: string, options?: GetByTableOptions): Promise<Session | null> {
+    return getActiveSessionForTable(tableId, options);
   },
 
   async getAll(params?: { status?: string }): Promise<Session[]> {
@@ -139,7 +152,10 @@ export const sessionService = {
     }
 
     const tables = await tableService.getAll();
-    const sessions = await Promise.all(tables.map((table) => getActiveSessionForTable(table._id)));
+    const activeTables = tables.filter((table) => canHaveActiveSession(table.status));
+    const sessions = await Promise.all(
+      activeTables.map((table) => getActiveSessionForTable(table._id, { tableStatus: table.status }))
+    );
     return sessions.filter((session): session is Session => session !== null);
   },
 };

@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { extractServerErrorMessage, type ErrorPayload } from './error';
 
 const REQUESTED_WITH_HEADER = 'XMLHttpRequest';
 const AUTH_ROUTES = [
@@ -79,7 +80,12 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: AxiosError<ErrorPayload>) => {
+    const backendMessage = extractServerErrorMessage(error.response?.data);
+    if (backendMessage) {
+      error.message = backendMessage;
+    }
+
     const originalRequest = error.config as RetryableRequestConfig | undefined;
 
     if (
