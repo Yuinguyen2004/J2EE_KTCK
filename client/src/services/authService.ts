@@ -1,6 +1,13 @@
 import api, { clearAccessToken, refreshAccessToken, setAccessToken } from './api';
 
 const GOOGLE_AUTHORIZATION_PATH = '/oauth2/authorization/google';
+type RuntimeAppConfig = {
+  authOrigin?: string;
+};
+
+type RuntimeConfigWindow = Window & typeof globalThis & {
+  __APP_CONFIG__?: RuntimeAppConfig;
+};
 
 export type UserRole = 'admin' | 'staff' | 'customer';
 
@@ -52,6 +59,15 @@ const applySession = (payload: ServerAuthResponse): AuthSession => {
   };
 };
 
+const googleAuthorizationOrigin = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const runtimeOrigin = (window as RuntimeConfigWindow).__APP_CONFIG__?.authOrigin?.trim();
+  return runtimeOrigin || window.location.origin;
+};
+
 export const authService = {
   async login(email: string, password: string): Promise<AuthSession> {
     const { data } = await api.post<ServerAuthResponse>('/auth/login', { email, password });
@@ -74,11 +90,12 @@ export const authService = {
   },
 
   startGoogleLogin(): void {
-    if (typeof window === 'undefined') {
+    const origin = googleAuthorizationOrigin();
+    if (!origin) {
       return;
     }
 
-    const url = new URL(GOOGLE_AUTHORIZATION_PATH, window.location.origin);
+    const url = new URL(GOOGLE_AUTHORIZATION_PATH, origin);
     window.location.assign(url.toString());
   },
 

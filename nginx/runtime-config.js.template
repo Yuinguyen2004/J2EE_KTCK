@@ -1,0 +1,3 @@
+window.__APP_CONFIG__ = {
+  authOrigin: "${GOOGLE_AUTH_ORIGIN}"
+};
