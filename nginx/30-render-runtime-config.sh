@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-: "${GOOGLE_AUTH_ORIGIN:=${BACKEND_UPSTREAM:-}}"
+: "${GOOGLE_AUTH_ORIGIN:=}"
 
 envsubst '${GOOGLE_AUTH_ORIGIN}' \
   < /opt/runtime-config.js.template \

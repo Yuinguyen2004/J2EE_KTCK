@@ -70,11 +70,19 @@ Deploy the `web` service from the same repository, but set:
 ```env
 RAILWAY_DOCKERFILE_PATH=client/Dockerfile
 BACKEND_UPSTREAM=http://server.railway.internal:8080
-GOOGLE_AUTH_ORIGIN=https://<your-public-server-domain>
 ```
 
 The web image uses an nginx template, so `BACKEND_UPSTREAM` can point at Railway's private backend hostname instead of Docker Compose's `server:8080`.
-When the frontend and backend use different public Railway domains, set `GOOGLE_AUTH_ORIGIN` to the backend's public origin so the Google OAuth state cookie is issued and consumed on the same host.
+For this repo's default Railway setup, keep Google login on the same public `web` origin as the SPA.
+Do not point browser auth at a private Railway hostname, and do not use a separate public backend domain unless you are intentionally running a different auth origin.
+
+Optional only for unusual topologies:
+
+```env
+GOOGLE_AUTH_ORIGIN=https://<explicit-public-auth-origin>
+```
+
+If you set `GOOGLE_AUTH_ORIGIN`, it must be a public browser-reachable origin that is also whitelisted in Google Cloud Console.
 
 ## 5. Expose the frontend
 
@@ -97,6 +105,7 @@ JWT_REFRESH_COOKIE_SECURE=true
 ```
 
 Redeploy `server` after changing these variables.
+For the normal Railway demo path, Google OAuth should also redirect back through this same public `web` domain.
 
 ## 7. First boot and cleanup
 
